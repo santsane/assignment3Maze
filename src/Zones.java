@@ -10,17 +10,64 @@ public class Zones {
 
     /**
      * Mission 4. Kosaraju. Returns zoneOf: zoneOf[cell] = number of the zone, numbers 0 .. zones-1.
-     * Number the zones in the order in which the second pass finds them. That order is a topological order
-     * of the zone graph: every slide between two zones goes from a smaller number to a larger number.
-     *
-     * Plan: 1) DFS on the slides, write the cells in the order in which they are finished (use a stack, not recursion);
-     * 2) go through the cells from the last finished to the first; if a cell has no zone yet, DFS from it on the reversed
-     * slides (slidesInto) and give every cell it reaches the next zone number.
-     * Is DAG in Main is 1 when the number of zones equals the number of cells (no cycle), so you do not need a separate check.
+     * Zones are numbered in the order in which the second pass finds them (a topological order of the zone graph).
      */
     public static int[] kosaraju(Input.Slides s) {
-        // TODO
-        return new int[s.n()];
+        int n = s.n();
+        int[][] out = Graphs.slidesFrom(s);
+        int[][] in = Graphs.slidesInto(s);
+
+        // ---- pass 1: DFS on the slides, remember the cells in the order they are finished ----
+        boolean[] seen = new boolean[n];
+        int[] pos = new int[n];        // how many slides of this cell we have already looked at
+        int[] finished = new int[n];
+        int fcount = 0;
+        int[] stack = new int[n];
+        int sp = 0;
+
+        for (int start = 0; start < n; start++) {
+            if (seen[start]) continue;
+            seen[start] = true;
+            stack[sp++] = start;
+            while (sp > 0) {
+                int u = stack[sp - 1];
+                if (pos[u] < out[u].length) {
+                    int slide = out[u][pos[u]++];
+                    int v = s.to()[slide];
+                    if (!seen[v]) {
+                        seen[v] = true;
+                        stack[sp++] = v;
+                    }
+                } else {
+                    sp--;                     // u is finished
+                    finished[fcount++] = u;
+                }
+            }
+        }
+
+        // ---- pass 2: from the last finished cell to the first, DFS on the reversed slides ----
+        int[] zoneOf = new int[n];
+        java.util.Arrays.fill(zoneOf, -1);
+        int zones = 0;
+        sp = 0;
+        for (int i = n - 1; i >= 0; i--) {
+            int c = finished[i];
+            if (zoneOf[c] != -1) continue;   // already in a zone
+            zoneOf[c] = zones;
+            stack[sp++] = c;
+            while (sp > 0) {
+                int u = stack[--sp];
+                for (int slide : in[u]) {
+                    int v = s.from()[slide];
+                    if (zoneOf[v] == -1) {
+                        zoneOf[v] = zones;
+                        stack[sp++] = v;
+                    }
+                }
+            }
+            zones++;   // this DFS found one whole zone
+        }
+        return zoneOf;
     }
 
     /**
