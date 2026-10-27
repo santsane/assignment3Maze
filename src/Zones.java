@@ -77,7 +77,42 @@ public class Zones {
      * [1] the cost of the cheapest route from the zone of cell 0 to the zone of the last cell.
      */
     public static long[] routes(Input.Slides s, int[] zoneOf, int zoneCount) {
-        // TODO
-        return new long[]{0, 0};
+        int n = s.n();
+        int[][] out = Graphs.slidesFrom(s);
+
+        // put the cells into groups by zone (counting sort): cells of zone z are cells[first[z] .. first[z+1]-1]
+        int[] first = new int[zoneCount + 1];
+        for (int c = 0; c < n; c++) first[zoneOf[c] + 1]++;
+        for (int z = 0; z < zoneCount; z++) first[z + 1] += first[z];
+        int[] fill = java.util.Arrays.copyOf(first, zoneCount);
+        int[] cells = new int[n];
+        for (int c = 0; c < n; c++) cells[fill[zoneOf[c]]++] = c;
+
+        long INF = Long.MAX_VALUE / 4;
+        long[] chain = new long[zoneCount];   // number of zones on the longest chain that ends in this zone
+        long[] dist = new long[zoneCount];    // cheapest cost from the zone of cell 0
+        java.util.Arrays.fill(chain, 1);
+        java.util.Arrays.fill(dist, INF);
+        dist[zoneOf[0]] = 0;
+
+        long longest = 1;
+        // zones are numbered in topological order, so when we reach zone z
+        // every slide that enters z has already been looked at: chain[z] and dist[z] are final
+        for (int z = 0; z < zoneCount; z++) {
+            if (chain[z] > longest) longest = chain[z];
+            for (int i = first[z]; i < first[z + 1]; i++) {
+                int u = cells[i];
+                for (int slide : out[u]) {
+                    int y = zoneOf[s.to()[slide]];
+                    if (y == z) continue;   // a slide inside the zone is free and changes nothing
+                    if (chain[z] + 1 > chain[y]) chain[y] = chain[z] + 1;
+                    if (dist[z] < INF) {
+                        long t = dist[z] + s.time()[slide];
+                        if (t < dist[y]) dist[y] = t;
+                    }
+                }
+            }
+        }
+        return new long[]{longest, dist[zoneOf[n - 1]]};
     }
 }
